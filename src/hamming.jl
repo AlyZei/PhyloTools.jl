@@ -157,3 +157,29 @@ function pairwise_ham_dist(msa::Array{T,2}; n_seq = 100, all = false) where {T}
     end
     return all ? res : mean(res)
 end
+
+
+
+function ham_dist_nogap(vec1::Array{T,1}, vec2::Array{T,1}) where {T}
+    mask = (vec1 .!= 21) .& (vec2 .!=21)
+    return sum(vec1[mask] .!= vec2[mask])
+end
+
+
+
+function ham_dist_nogap(vec::Array{T,1}, msa::Array{T,2}) where {T}
+    return [ham_dist_nogap(vec, msa[:, i]) for i in 1:size(msa, 2)]
+end
+
+
+function ham_dist_inter_msa(msa1::Array{T,2}, msa2::Array{T,2}; shuffles = 10) where {T}
+    res = []
+    for _ in 1:shuffles
+        m1 = msa1[:,shuffle(1:size(msa1, 2))]
+        m2 = msa2[:,shuffle(1:size(msa2, 2))]
+        dd = ham_dist(m1,m2)
+        append!(res, dd)
+    end
+
+    return res
+end

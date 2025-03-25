@@ -145,3 +145,28 @@ function get_eff_fields(seq::Array{Int,1}, h::Array{Float64,2}, J::Array{Float64
     return res
 end
            
+
+
+function decoupled_energy(seq::Array{Int8}, h::Array{T,2}, J::Array{T,4}, L::Int) where {T}
+    sum1 = zero(T);
+    sum2 = zero(T)
+    @inbounds for i in 1:L
+        sum1 -= h[seq[i], i]
+        @inbounds for j in i+1:L
+            sum2 -= J[seq[i], i, seq[j], j]
+        end
+    end
+    return sum1, sum2
+end
+
+function decoupled_energy(seq::Array{Int}, h::Array{T,2}, J::Array{T,4}, L::Int) where {T}
+    sum1 = zero(T)
+    sum2 = zero(T)
+    @inbounds for i in 1:L
+        sum1 -= h[seq[i], i]
+        @inbounds for j in i+1:L
+            sum2 -= J[seq[i], i, seq[j], j]
+        end
+    end
+    return sum1, sum2
+end

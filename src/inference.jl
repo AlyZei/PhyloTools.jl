@@ -1,3 +1,24 @@
+
+function extract_distances(T, start_seq; gap_option = false)
+    ds = [];
+    ts = [distance(T.root, a) for a in leaves(T)];
+    for a in keys(T.lleaves)
+        push!(ds, ham_dist(start_seq, data(T[a]).seq))
+    end
+    
+    return ts, ds
+end
+
+function extract_distances(FileTree::String, FileSequences::String, start_seq; gap_option = false)
+    Z = read_fasta_dict(FileSequences)
+    T = read_tree(FileTree, node_data_type = Seqontree)
+    for leaf in leaves(T)
+              data(T[label(leaf)]).seq = Z[label(leaf)] 
+    end
+       
+    return extract_distances(T, start_seq, gap_option = gap_option)
+end
+
 function infer_mu(T; gap_option = true)
     ds = [];ts = [];
     for a in keys(T.lleaves)
@@ -99,12 +120,6 @@ function get_loglike_singlesite(Z, AncestorProb::Array{Float64,1}, TransitionPro
 
     return -like 
     
-    
-    ## stupid function to see if it does right
-    #its the negative entropy, so to minimize i want a stationary distribution
-    
-    #return +sum(W_new .* log.(W_new) ./log(2))
-    #return sum(W_new[1:5])
 end
 
 

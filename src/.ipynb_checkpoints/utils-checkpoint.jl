@@ -129,6 +129,36 @@ function read_fasta_dict(FileSeq::String)
 end
 
 
+function read_fasta_dict_rna(FileSeq::String)
+    """
+    Reads the sequences in the input file and saves them in a dictionary with the name of the sequences as keys and the sequences (in numeric form) as values
+    """
+    seq_text = readlines(FileSeq)
+    Z_text = Dict()
+    seq = ""
+    name = ""
+    for i in 1:length(seq_text)
+        if seq_text[i][1] == '>'
+            name = split(seq_text[i],">")[2]
+            seq = ""
+        else
+            seq *= seq_text[i]
+        end
+        Z_text[name] = seq
+    end
+
+    Z = Dict{}()
+    for key in keys(Z_text)
+        num_seq = [nucleoalphabet[Z_text[key][i]] for i in 1:length(Z_text[key])]
+        # if !(num_seq in values(Z))
+        #     Z[key] = num_seq
+        # end
+        Z[key] = num_seq
+    end
+    return Z
+end
+
+
 function compute_empirical_freqs(Z::Array{Int64,2}, q::Int; eps::Float64 = 0.0) 
     """
     Function to compute the frequency of occurrence of each aminoacid in the MSA.

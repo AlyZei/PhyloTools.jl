@@ -371,3 +371,132 @@ function find_optimal_mu(tree_file::String, mus::Array{Float64,1}, start_seq::Ar
     println("Optimal mu: $(mus[argmin(res)])")
     return (mus = mus, score = res)
 end
+
+
+"""
+    pair_dist_freq(msa; n_seq::Int = 500)
+
+Calculates the frequency of pairwise Hamming distances in a multiple sequence alignment.
+
+# Arguments
+- `msa`: The multiple sequence alignment matrix. *(non-optional)*
+- `n_seq`: Number of sequences to consider for pairwise comparisons (default is `500`). *(optional)*
+
+# Returns
+- An array of frequencies for each pairwise Hamming distance.
+
+# Errors
+- Throws an error if the input MSA is not properly formatted.
+"""
+
+
+function pair_dist_freq(msa; n_seq::Int = 500)
+    L = size(msa,1)
+    d = pairwise_ham_dist(Int8.(msa), n_seq = n_seq, all = true); 
+    count_d = [sum(d .== i) for i in 1:L] ./length(d)
+    return count_d
+end
+
+
+"""
+    check_pairwise(f_nat::Array{T,1}, f_sim::Array{T,1}, save_path::String) where T
+
+Generates a plot comparing the frequency of pairwise Hamming distances for natural and simulated sequences.
+
+# Arguments
+- `f_nat`: Frequencies for natural sequences. *(non-optional)*
+- `f_sim`: Frequencies for simulated sequences. *(non-optional)*
+- `save_path`: The path where the generated plot will be saved. *(non-optional)*
+
+# Returns
+This function does not return a value; it saves the generated plot to the specified file path.
+
+# Errors
+- May throw errors related to plotting or file-saving issues, depending on the provided `save_path`.
+"""
+
+function check_pairwise(f_nat::Array{T,1}, f_sim::Array{T,1}, save_path::String) where T
+    close("all")
+    # Create a new figure
+    plt.plot(f_nat, color="blue", label="nat", linewidth=2)
+    # Plot the second histogram for 'sim' with no fill
+    plt.plot(f_sim, color="red", label="sim", linewidth=2)
+
+    plt.yscale("log")
+    # Add labels and legend
+    plt.xlabel("Pairwise Hamming")
+    plt.ylabel("Frequency")
+    plt.legend()
+
+    # Save the plot to the specified path
+    plt.savefig(save_path)
+end
+
+
+function check_energy(path::String, nat_msa::Array{Int8,2}, msa::Array{Int8,2}, h::Array{Float64,2}, J::Array{Float64,4})
+    en_nat = energy(nat_msa, h, J)
+    en_sim = energy(msa, h, J)
+    
+    close("all")
+    # Plot the first histogram for 'nat' with no fill
+    plt.hist(en_nat, bins=30, histtype="step", density = true, color="blue", label="nat", linewidth=2)
+
+    # Plot the second histogram for 'sim' with no fill
+    plt.hist(en_sim, bins=30, histtype="step", density = true, color="red", label="sim", linewidth=2)
+
+    # Add labels and legend
+    plt.xlabel("Energy")
+    plt.ylabel("Frequency")
+    plt.yscale("log")
+    plt.legend()
+
+    # Save the plot to the specified path
+    plt.savefig(path)
+end
+
+
+function check_energy(path::String, nat_msa::Array{Int8,2}, msa::Array{Int8,2}, h::Array{Float64,2}, J::Array{Float64,4}, w::Array{Float64,1})
+    en_nat = energy(nat_msa, h, J)
+    en_sim = energy(msa, h, J)
+    
+    close("all")
+    # Plot the first histogram for 'nat' with no fill
+    plt.hist(en_nat, weights = w, bins=30, histtype="step", density = true, color="blue", label="nat", linewidth=2)
+
+    # Plot the second histogram for 'sim' with no fill
+    plt.hist(en_sim, bins=30, histtype="step", color="red", density = true, label="sim", linewidth=2)
+
+    # Add labels and legend
+    plt.xlabel("Energy")
+    plt.ylabel("Frequency")
+    plt.yscale("log")
+    plt.legend()
+
+    # Save the plot to the specified path
+    plt.savefig(path)
+end
+
+
+
+function check_dist_from_wt(wt::Array{T,1}, msa::Array{T,2}, msa_nat::Array{T,2}, save_path::String) where {T}
+    L = length(wt)
+    d_nat = ham_dist(wt, msa_nat) ./L
+    d_sim =  ham_dist(wt, msa) ./L
+    
+    close("all")
+    
+     # Plot the first histogram for 'nat' with no fill
+    plt.hist(d_nat, bins=30, histtype="step", density = true, color="blue", label="nat", linewidth=2)
+
+    # Plot the second histogram for 'sim' with no fill
+    plt.hist(d_sim, bins=30, histtype="step", color="red", density = true, label="sim", linewidth=2)
+
+    plt.yscale("log")
+    # Add labels and legend
+    plt.xlabel("Hamming from Wt")
+    plt.ylabel("Frequency")
+    plt.legend()
+
+    # Save the plot to the specified path
+    plt.savefig(save_path)
+end

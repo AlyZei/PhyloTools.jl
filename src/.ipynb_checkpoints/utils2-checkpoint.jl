@@ -367,3 +367,333 @@ function infer_felse_mu(T)
     
     return fiti.param[2]
 end
+
+
+
+
+function print_fasta_to_file_rna(number_matrix,filename,name)
+	open(filename, "w") do f
+	for i in 1:length(number_matrix[:,1])
+		if i==1
+		    write(f,">1_",name," \n")
+		else
+		    write(f,"\n>$(i)_",name," \n")
+		end
+		for j in 1:length(number_matrix[1,:])
+		    if number_matrix[i,j]==1 
+		        write(f,"A")
+		    elseif number_matrix[i,j]==2
+		        write(f,"C")
+		    elseif number_matrix[i,j]==3
+		        write(f,"G")
+		    elseif number_matrix[i,j]==4
+		        write(f,"U")
+		    elseif number_matrix[i,j]==5
+		        write(f,"-")
+		    end
+		end
+	end	    
+	end
+end
+
+
+function leavestofasta_rna(path, tree)
+    n_seq = length(tree.lleaves)
+    FastaWriter(path, "w") do file
+        for a in keys(tree.lleaves) 
+            writeentry(file, "$(a)", vec2string_rna(tree["$(a)"].data.seq[:]))
+        end
+    end
+end
+
+
+function vec2string_rna(v)
+    s = ""
+    for i in v
+        s = s*num2letter_rna(i)
+    end
+    return s
+end
+
+
+function string2vec_rna(s::AbstractString)
+    v = Vector{Int8}(undef, length(s))
+    for (i, l) in enumerate(s)
+        v[i] = letter2num_rna(l)
+    end
+    return v
+end
+
+
+let alphabet = ["A", "C", "G", "U"]
+    global num2letter_rna
+    function num2letter_rna(i :: Integer)
+        1 <= i <= 4 && return alphabet[i]
+        return "-"
+    end
+end
+
+let alphabet = [1, 2, 3, 4, 5]
+               # A, C, G, T/U, -
+    global letter2num_rna
+    function letter2num_rna(c::Union{Char,UInt8})
+        if c == 'A'
+            return 1
+        elseif c == 'C'
+            return 2
+        elseif c == 'G'
+            return 3
+        elseif c == 'U' || c == 'T'
+            return 4
+        elseif c == '-'
+            return 5
+        else
+            return 21  # Default case for unknown characters
+        end
+    end
+end
+
+
+
+function do_letter_matrix(filename)
+    # Efficiently read and preprocess the lines
+    lines = open(readlines, filename)
+    lines = [strip(line) for line in lines if !isempty(strip(line))]
+    sequences = String[]
+    temp_seq = ""
+    # Parse the sequences from the file
+    for line in lines
+        if startswith(line, '>')
+            if !isempty(temp_seq)
+                push!(sequences, temp_seq)
+                temp_seq = ""
+            end
+        else
+            temp_seq *= line
+        end
+    end
+    # Add the last sequence if exists
+    if !isempty(temp_seq)
+        push!(sequences, temp_seq)
+    end
+    # Ensure there is at least one sequence
+    if isempty(sequences)
+        throw(ArgumentError("No sequences found in the file."))
+    end
+    # Check that all sequences have the same length
+    seq_lengths = length.(sequences)
+    first_length = seq_lengths[1]
+    for (idx, len) in enumerate(seq_lengths)
+        if len != first_length
+            throw(ArgumentError("Sequence at index $idx has length $len, which does not match the expected length of $first_length. All sequences must be the same length."))
+        end
+    end
+    num_seqs = length(sequences)
+    seq_length = first_length
+    # Preallocate the letter matrix
+    letter_matrix = Array{Char}(undef, num_seqs, seq_length)
+    # Populate the letter matrix
+    for i in 1:num_seqs
+        letter_matrix[i, :] = collect(sequences[i])
+    end
+    return letter_matrix
+end
+
+
+
+function do_number_matrix_rna(letter_matrix,threshold)
+    n_columns=length(letter_matrix[1,:])
+    n_rows=length(letter_matrix[:,1])
+    number_matrix=zeros(Int8,n_rows,n_columns)
+    for i in 1:n_rows
+        for j in 1:n_columns
+            if letter_matrix[i,j]=='A'
+                number_matrix[i,j]=1
+            elseif letter_matrix[i,j]=='C'
+                number_matrix[i,j]=2
+            elseif letter_matrix[i,j]=='G'
+                number_matrix[i,j]=3
+            elseif letter_matrix[i,j]=='U' || letter_matrix[i,j]=='T' 
+                number_matrix[i,j]=4
+            elseif letter_matrix[i,j]=='-'
+                number_matrix[i,j]=5
+            end
+        end
+    end
+    i=1
+    while i<=length(number_matrix[:,1])
+	   if 0 in number_matrix[i,:]
+		number_matrix=number_matrix[setdiff(1:end, i), :]
+	   else
+    		i=i+1
+    	   end
+    end  
+    i=1 
+    while i<=length(number_matrix[:,1])
+	   if length(number_matrix[i,:][number_matrix[i,:].==5])/n_columns>=threshold
+		number_matrix=number_matrix[setdiff(1:end, i), :]
+	   else
+	    	i=i+1
+	   end
+    end
+    return number_matrix
+end
+
+
+
+function read_rna(filename, treshold)
+    lett = do_letter_matrix(filename)
+    return Int.(do_number_matrix_rna(lett,treshold)')
+end
+    
+    
+
+function convert_U_to_T_fasta(fasta_path::String)
+           # Generate new file name with "ardca_alpha" prefix
+           new_fasta_path = joinpath(dirname(fasta_path), "ardca_T_" * basename(fasta_path))
+           
+           # Open the input file and process line by line
+           open(fasta_path, "r") do infile
+               open(new_fasta_path, "w") do outfile
+                   for line in eachline(infile)
+                       if startswith(line, ">")  # Keep headers unchanged
+                           println(outfile, line)
+                       else  # Convert RNA (U) to DNA (T)
+                           println(outfile, replace(line, 'U' => 'T'))
+                       end
+                   end
+               end
+           end
+           
+           return new_fasta_path
+       end
+
+
+function convert_T_to_U_fasta(fasta_path::String)
+           # Generate new file name with "ardca_alpha" prefix
+           new_fasta_path = joinpath(dirname(fasta_path), "ardca_U_" * basename(fasta_path))
+           
+           # Open the input file and process line by line
+           open(fasta_path, "r") do infile
+               open(new_fasta_path, "w") do outfile
+                   for line in eachline(infile)
+                       if startswith(line, ">")  # Keep headers unchanged
+                           println(outfile, line)
+                       else  # Convert RNA (U) to DNA (T)
+                           println(outfile, replace(line, 'T' => 'U'))
+                       end
+                   end
+               end
+           end
+           
+           return new_fasta_path
+       end
+
+
+struct PhyloNode
+    name::String
+    parent::Union{Nothing, String}  # Parent node name
+    branch_length::Float64
+    children::Vector{String}  # List of children node names
+end
+
+function generate_phylogenetic_trees(n::Int)
+    leaves = ["L$i" for i in 1:2^n]  # Generate 2^n leaves
+    nodes = Dict{String, PhyloNode}()  # Dictionary to store tree nodes
+    trees = []  # Store trees at each step
+
+    # Step 1: Initialize the star tree (all leaves directly connected to root)
+    for leaf in leaves
+        nodes[leaf] = PhyloNode(leaf, "Root", 1.0, [])  # Leaves have length 1
+    end
+    nodes["Root"] = PhyloNode("Root", nothing, 0.0, leaves)  # Root connects to all leaves
+
+    current_nodes = leaves  # Start with all leaves directly connected to root
+    step = 1
+    target_sizes = Set([2^k for k in n:-1:1])  # Powers of 2 down to 2
+
+    # Store the initial tree
+    push!(trees, deepcopy(nodes))
+
+    # Step 2: Iteratively merge branches until only two remain at the root
+    while length(current_nodes) > 2
+        new_nodes = []  # Store new internal nodes
+
+        shuffle!(current_nodes)  # Randomly pair branches for merging
+        for i in 1:2:length(current_nodes)
+            l1, l2 = current_nodes[i], current_nodes[i+1]
+
+            # Get branch lengths of the two nodes
+            bl1, bl2 = nodes[l1].branch_length, nodes[l2].branch_length
+            merge_point = rand() * min(bl1, bl2)  # Random merge position
+
+            # Create a new internal node
+            new_node = "N$(step)_$(i÷2)"
+            nodes[new_node] = PhyloNode(new_node, "Root", merge_point, [l1, l2])
+
+            # Update the leaves' branch lengths and set their new parent
+            nodes[l1] = PhyloNode(l1, new_node, bl1 - merge_point, [])
+            nodes[l2] = PhyloNode(l2, new_node, bl2 - merge_point, [])
+
+            push!(new_nodes, new_node)
+        end
+
+        # Root should now point to the new internal nodes while keeping original leaves
+        nodes["Root"] = PhyloNode("Root", nothing, 0.0, new_nodes)
+
+        current_nodes = new_nodes  # Prepare for next iteration
+        step += 1
+
+        # Store tree only at halving points
+        if length(new_nodes) in target_sizes
+            push!(trees, deepcopy(nodes))
+        end
+    end
+
+    return trees
+end
+
+# Convert the tree structure to Newick format
+function tree_to_newick(nodes::Dict{String, PhyloNode}, root::String="Root")::String
+    function recursive_newick(node::String)::String
+        if isempty(nodes[node].children)
+            return "$(node):$(nodes[node].branch_length)"
+        else
+            children_str = join([recursive_newick(child) for child in nodes[node].children], ",")
+            return "($children_str):$(nodes[node].branch_length)"
+        end
+    end
+    return recursive_newick(root) * ";"
+end
+
+# Save each tree as a Newick (.nwk) file
+function save_trees_to_nwk(trees)
+    for (i, tree) in enumerate(trees)
+        filename = "../tree_$i.nwk"
+        open(filename, "w") do io
+            write(io, tree_to_newick(tree))
+        end
+        println("Saved: $filename")
+    end
+end
+
+
+function harm_mean_branch_length(tree)
+    cc = 0; 
+    n = length(tree.lnodes)
+    for k in keys(tree.lnodes)
+        if k !== "NODE_1"
+            cc += 1/branch_length(tree[k])
+        end
+    end
+    return n/cc
+end
+
+
+
+function consensus(msa,q)
+    L,M = size(msa)
+    f1,f2 = compute_weighted_frequencies(Int8.(msa),q+1,0.)
+    f1 = reshape(f1,q,L)
+    return [argmax(f1[:,i]) for i in 1:L]
+end
