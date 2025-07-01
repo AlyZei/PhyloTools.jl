@@ -280,3 +280,4 @@ function moving_average(data, window_size)
     end
     return ma
 end
+
